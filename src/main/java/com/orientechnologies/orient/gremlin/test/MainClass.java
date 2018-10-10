@@ -31,9 +31,10 @@ public class MainClass {
     
     
     OrientGraph graph = null;
-    final int recCount = 300;
+    final int recCount = 50;
     final int threadCount = 200;
     int responseCode = 0;
+    long startTime = System.currentTimeMillis();
     try{      
       Thread[] threads = new Thread[threadCount];
       for (int j = 0; j < threadCount; j++){
@@ -102,6 +103,8 @@ public class MainClass {
       }
     }
     finally{
+      long durration = System.currentTimeMillis() - startTime;
+      System.out.println("Durration: " + durration);
       if (graph != null){
         graph.close();
       }
