@@ -92,6 +92,7 @@ public class MainClass {
           break;
         }
         System.out.println("Val: " + a);
+        vals.add(a);
         counter++;
       }
       if (counter != threadCount * recCount){
