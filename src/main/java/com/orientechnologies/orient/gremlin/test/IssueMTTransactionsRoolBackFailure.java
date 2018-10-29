@@ -13,10 +13,12 @@ import com.orientechnologies.orient.core.db.ODatabaseSession;
 import com.orientechnologies.orient.core.db.ODatabaseType;
 import com.orientechnologies.orient.core.db.OrientDB;
 import com.orientechnologies.orient.core.db.OrientDBConfig;
+import com.orientechnologies.orient.core.id.ORID;
 import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.record.ODirection;
 import com.orientechnologies.orient.core.record.OVertex;
+import com.orientechnologies.orient.core.record.OEdge;
 import com.orientechnologies.orient.core.sql.executor.OResultSet;
 
 import java.util.HashSet;
@@ -25,6 +27,12 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import com.orientechnologies.orient.core.id.ORecordId;
+import java.util.Iterator;
+import com.orientechnologies.orient.core.exception.ORecordNotFoundException;
+import com.orientechnologies.orient.core.iterator.ORecordIteratorClass;
+import com.orientechnologies.orient.core.record.impl.ODocument;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class IssueMTTransactionsRoolBackFailure {
 
@@ -48,28 +56,78 @@ public class IssueMTTransactionsRoolBackFailure {
 
     private static final String BLOCKING = "Blocking";
 
-    private static final String BLOCKING_PROP_KEY = "key";
-
+    private static final String BLOCKING_PROP_KEY = "key";        
+    
+    private static AtomicInteger counter = new AtomicInteger(0);
+    
+//    public static void checkTeacherVertices(){
+//      OrientDB orientDB = new OrientDB("remote:localhost", "root", "000000", OrientDBConfig.defaultConfig());
+//      ODatabaseSession db = orientDB.open("test", "admin", "admin");
+//      
+//      OVertex blocking = db.getRecord(blockingId);
+//      blocking.reload();
+//      
+//      Iterable<OEdge> edges = blocking.getEdges(ODirection.IN, "_TeacherBlockingEdge");
+//      Iterator<OEdge> edgesIter = edges.iterator();
+//      int counter = 0;
+//      while (edgesIter.hasNext()){
+//        Object obj = edgesIter.next();
+//        counter++;
+//      }
+//      
+////      for (OEdge edge : edges){
+////        System.out.println("Edge id: " + edge.getIdentity());
+////        OVertex tv = edge.getVertex(ODirection.OUT);
+////        System.out.println("Vert id: " + tv.getIdentity());
+////      }
+////      
+////      System.out.println("-----------------------------------------------------");
+////      
+////      Iterable<OVertex> iterable = blocking.getVertices(ODirection.IN, "_TeacherBlockingEdge");
+////      for (OVertex teacher : iterable){
+////        System.out.println("Teacher id: " + teacher.getIdentity());
+////      }
+//    }
+    
     // The final result should probably be only one Teacher record in database,
     // even more than one, the bocking edges final state is not correct.
     public static void main(String[] args) throws InterruptedException {
-        OrientDB orientDB = new OrientDB("remote:localhost", "root", "000000", OrientDBConfig.defaultConfig());
+        OrientDB orientDB = new OrientDB("embedded:/data/services/databases", "root", "000000", OrientDBConfig.defaultConfig());
         schema(orientDB);
         String teacherName = "Jim";
         // create one record first
-        create(orientDB, UUID.randomUUID().toString(), teacherName);
+        create(orientDB, UUID.randomUUID().toString(), teacherName, 0);
 
         // concurrent create records
-        ExecutorService executorService = Executors.newFixedThreadPool(30);
+        ExecutorService executorService = Executors.newFixedThreadPool(5);
         for (int i = 0; i < 3000; i++) {
-            executorService.submit(() -> create(orientDB, UUID.randomUUID().toString(), teacherName));
+          final int index = i;  
+          executorService.execute(new Runnable() {
+              @Override
+              public void run() {
+                create(orientDB, UUID.randomUUID().toString(), teacherName, index);
+              }
+            });                    
         }
-        executorService.awaitTermination(2, TimeUnit.MINUTES);
+        
         executorService.shutdown();
+        executorService.awaitTermination(5, TimeUnit.HOURS);
+        
+        ODatabaseSession db = orientDB.open(DB_NAME, "admin", "admin");
+        ORecordIteratorClass<ODocument> iter = db.browseClass(TEACHER);
+        while (iter.hasNext()){
+          ODocument doc = iter.next();
+          doc.delete();
+        }
+        
+        orientDB.close();                        
     }
 
-    private static void create(OrientDB orientDB, String studentId, String teacherName) {
-        ODatabaseSession db = orientDB.open("test", "admin", "admin");
+    private static void create(OrientDB orientDB, String studentId, String teacherName, int index) {
+        ODatabaseSession db = null;
+        synchronized(orientDB){
+          db = orientDB.open(DB_NAME, "admin", "admin");
+        }
         try {
             db.begin();
             String teacherId = UUID.randomUUID().toString();
@@ -83,46 +141,65 @@ public class IssueMTTransactionsRoolBackFailure {
             candidates.forEach(candidateV -> {
                 Iterable<OVertex> studentVs = candidateV.getVertices(ODirection.OUT, TEACHER_STUDENT_EDGE);
                 studentVs.forEach(students::add);
-                candidateV.delete();
+                candidateV.delete();                
             });
 
             OVertex teacherV = db.newVertex(TEACHER);
             teacherV.setProperty(TEACHER_PROP_NAME, teacherName);
             teacherV.setProperty(TEACHER_PROP_ID, teacherId);
+            teacherV = teacherV.save();
 
             OVertex studentV = db.newVertex(STUDENT);
             studentV.setProperty(STUDENT_PROP_IDENTIFIER, studentId);
             studentV.setProperty(STUDENT_PROP_TEACHER_ID, teacherId);
-            //added by me
-            studentV.save();
-            
-            teacherV.addEdge(studentV, TEACHER_STUDENT_EDGE);
+            studentV = studentV.save();
+           
+            OEdge e = db.newEdge(teacherV, studentV, TEACHER_STUDENT_EDGE);//  teacherV.addEdge(studentV, TEACHER_STUDENT_EDGE);
+            e.save();
 
-            students.forEach(id -> {
-                id.setProperty(STUDENT_PROP_TEACHER_ID, teacherId);
-                teacherV.addEdge(id, TEACHER_STUDENT_EDGE);
+            final ODatabaseSession finalDb = db;
+            final OVertex finalTeacher = teacherV;
+            students.forEach(student -> {
+                student.setProperty(STUDENT_PROP_TEACHER_ID, teacherId);
+                OEdge ed = finalDb.newEdge(finalTeacher, student, TEACHER_STUDENT_EDGE); // teacherV.addEdge(student, TEACHER_STUDENT_EDGE);
+                ed.save();
             });
 
-            teacherV.addEdge(blockingV, TEACHER_BLOCKING_EDGE);
-            teacherV.save();
+            e = db.newEdge(teacherV, blockingV, TEACHER_BLOCKING_EDGE);// teacherV.addEdge(blockingV, TEACHER_BLOCKING_EDGE);
+            e.save();
+            //added by me
+            studentV.save();
+            teacherV.save(); 
+            
             db.commit();
-        } catch (Exception e) {
-            e.printStackTrace();
-            db.rollback();
-        } finally {
-            db.close();
         }
+        catch (Exception e) {
+            e.printStackTrace();
+            try{
+              db.rollback();
+            }
+            catch (Exception ex){
+              System.out.println("ROLL BACK EXCEPTION");
+              ex.printStackTrace();
+            }
+        } finally {
+          db.close();
+          System.out.println("KRAJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ" + counter.incrementAndGet());
+        }
+        
     }
 
-    private static OVertex getBlockingVIfNoneCreate(String name, ODatabaseSession db) {
-        OResultSet rs = db.query("select from " + BLOCKING + " where " + BLOCKING_PROP_KEY + "=?", name);
+    private synchronized static OVertex getBlockingVIfNoneCreate(String name, ODatabaseSession db) {
+        ORecordIteratorClass<ODocument> rs =  db.browseClass(BLOCKING);
+//        OResultSet rs = db.query("select from " + BLOCKING + " where " + BLOCKING_PROP_KEY + "=?", name);
         if (rs.hasNext()) {
-            return rs.next().getVertex().orElseThrow(() -> new RuntimeException());
+//            return rs.next().getVertex().orElseThrow(() -> new RuntimeException());
+            return rs.next().asVertex().orElse(null);
         } else {
-            OVertex vertex = db.newVertex(BLOCKING);
-            vertex.setProperty(BLOCKING_PROP_KEY, name);
-            vertex.save();
-            return vertex;
+            OVertex blockingVertex = db.newVertex(BLOCKING);
+            blockingVertex.setProperty(BLOCKING_PROP_KEY, name);
+            blockingVertex.save();            
+            return blockingVertex;
         }
     }
 
@@ -133,19 +210,19 @@ public class IssueMTTransactionsRoolBackFailure {
             OClass teacher = db.getClass(TEACHER);
             if (teacher == null) {
                 teacher = db.createVertexClass(TEACHER);
-                teacher.createProperty(TEACHER_PROP_ID, OType.STRING).setNotNull(true).createIndex(OClass.INDEX_TYPE.UNIQUE);
+                teacher.createProperty(TEACHER_PROP_ID, OType.STRING).setNotNull(true);
                 teacher.createProperty(TEACHER_PROP_NAME, OType.STRING).setNotNull(true);
             }
             OClass student = db.getClass(STUDENT);
             if (student == null) {
                 student = db.createVertexClass(STUDENT);
                 student.createProperty(STUDENT_PROP_TEACHER_ID, OType.STRING).setNotNull(true);
-                student.createProperty(STUDENT_PROP_IDENTIFIER, OType.STRING).setNotNull(true).createIndex(OClass.INDEX_TYPE.UNIQUE);
+                student.createProperty(STUDENT_PROP_IDENTIFIER, OType.STRING).setNotNull(true);
             }
             OClass blocking = db.getClass(BLOCKING);
             if (blocking == null) {
                 blocking = db.createVertexClass(BLOCKING);
-                blocking.createProperty(BLOCKING_PROP_KEY, OType.STRING).setNotNull(true).createIndex(OClass.INDEX_TYPE.UNIQUE);
+                blocking.createProperty(BLOCKING_PROP_KEY, OType.STRING).setNotNull(true);
             }
             if (db.getClass(TEACHER_STUDENT_EDGE) == null) {
                 db.createEdgeClass(TEACHER_STUDENT_EDGE);

@@ -32,7 +32,7 @@ public class MainClass {
     
     OrientGraph graph = null;
     final int recCount = 50;
-    final int threadCount = 200;
+    final int threadCount = 1;
     int responseCode = 0;
     long startTime = System.currentTimeMillis();
     try{      
@@ -51,7 +51,9 @@ public class MainClass {
                 graph = factory.getTx();
               }
               for (int i = 0; i < recCount; i++){            
-                graph.addVertex("TestSequence");
+                Vertex v = graph.addVertex("TestSequence");
+                Long a = (Long)v.property("mm").value();
+                System.out.println("a");
               }
               if (index % 2 != 0){
                 graph.commit();
