@@ -13,13 +13,11 @@ import com.orientechnologies.orient.core.db.ODatabaseSession;
 import com.orientechnologies.orient.core.db.ODatabaseType;
 import com.orientechnologies.orient.core.db.OrientDB;
 import com.orientechnologies.orient.core.db.OrientDBConfig;
-import com.orientechnologies.orient.core.id.ORID;
 import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.record.ODirection;
 import com.orientechnologies.orient.core.record.OVertex;
 import com.orientechnologies.orient.core.record.OEdge;
-import com.orientechnologies.orient.core.sql.executor.OResultSet;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -27,9 +25,6 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import com.orientechnologies.orient.core.id.ORecordId;
-import java.util.Iterator;
-import com.orientechnologies.orient.core.exception.ORecordNotFoundException;
 import com.orientechnologies.orient.core.iterator.ORecordIteratorClass;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -92,7 +87,7 @@ public class IssueMTTransactionsRoolBackFailure {
     // The final result should probably be only one Teacher record in database,
     // even more than one, the bocking edges final state is not correct.
     public static void main(String[] args) throws InterruptedException {
-        OrientDB orientDB = new OrientDB("embedded:/data/services/databases", "root", "000000", OrientDBConfig.defaultConfig());
+        OrientDB orientDB = new OrientDB("embedded:d:/services/databases", "root", "000000", OrientDBConfig.defaultConfig());
         schema(orientDB);
         String teacherName = "Jim";
         // create one record first
@@ -146,8 +141,8 @@ public class IssueMTTransactionsRoolBackFailure {
 
             OVertex teacherV = db.newVertex(TEACHER);
             teacherV.setProperty(TEACHER_PROP_NAME, teacherName);
-            teacherV.setProperty(TEACHER_PROP_ID, teacherId);
-            teacherV = teacherV.save();
+            teacherV.setProperty(TEACHER_PROP_ID, teacherId); 
+           teacherV = teacherV.save();
 
             OVertex studentV = db.newVertex(STUDENT);
             studentV.setProperty(STUDENT_PROP_IDENTIFIER, studentId);

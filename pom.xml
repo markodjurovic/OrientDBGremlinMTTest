@@ -22,10 +22,10 @@
         <artifactId>orientdb-client</artifactId>
         <version>${orientdb.version}</version>
       </dependency>
-      <dependency>
+<!--      <dependency>
         <groupId>com.orientechnologies</groupId>
         <artifactId>orientdb-gremlin</artifactId>
-        <version>3.0.10-SNAPSHOT</version>
-      </dependency>
+        <version>${orientdb.version}</version>
+      </dependency>-->
     </dependencies>
 </project>
