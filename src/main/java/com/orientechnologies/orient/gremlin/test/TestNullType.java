@@ -28,10 +28,12 @@ public class TestNullType {
   
   public static void main(String[] args){
     Random rand = new Random();
-    OrientDB orientDB = new OrientDB("embedded:D:/Services/databases", "root", "000000", OrientDBConfig.defaultConfig());
+    OrientDB orientDB = new OrientDB("embedded:/data/services/databases", "root", "000000", OrientDBConfig.defaultConfig());    
     orientDB.createIfNotExists(TestNullType.class.getSimpleName(), ODatabaseType.PLOCAL);
     ODatabaseSession db = orientDB.open(TestNullType.class.getSimpleName(), "admin", "admin");
+    String url = db.getURL();
     OClass claz = db.createClassIfNotExist("ElementClass");
+//    db.begin();    
     for (int i = 0; i < 3000; i++){
       OElement el = db.newElement(claz.getName());
       el.setProperty("simpleProp1", i + 136, OType.INTEGER);
@@ -61,6 +63,7 @@ public class TestNullType {
       System.out.println("Rec no: " + i);
       db.save(el);      
     }
+//    db.commit();
     
     //now read and deserializes them
     ORecordIteratorClass<ODocument> iter = db.browseClass(claz.getName());
