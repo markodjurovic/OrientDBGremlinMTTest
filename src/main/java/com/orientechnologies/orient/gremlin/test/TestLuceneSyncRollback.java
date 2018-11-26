@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package com.orientechnologies.orient.gremlin.test;
 
 import com.orientechnologies.orient.core.db.ODatabaseSession;
@@ -12,14 +7,22 @@ import com.orientechnologies.orient.core.db.OrientDBConfig;
 import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.record.impl.ODocument;
+import com.orientechnologies.orient.core.sql.executor.OResultSet;
+import java.util.HashSet;
 import java.util.Random;
+import java.util.Set;
+
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
 
 /**
  *
- * @author mdjurovi
+ * @author marko
  */
-public class TestLuceneSync {
-  
+public class TestLuceneSyncRollback {
   public static void main(String[] args){
     Random rand = new Random();
     String dbName = TestLuceneSync.class.getSimpleName();
@@ -33,16 +36,34 @@ public class TestLuceneSync {
     claz.createProperty("dummyField", OType.STRING);
     String indexName = className + "." + fieldName;
     claz.createIndex(indexName, "FULLTEXT", null, null, "LUCENE", new String[] {fieldName});    
-    for (int i = 0; i < 1500000; i++){
+    db.begin();
+    int num = 15000;
+    String[] vals = new String[num];
+    Set<String> indexKeys = new HashSet<>();
+    for (int i = 0; i < num; i++){
       ODocument doc = db.newInstance(className);
-      String val = "val_" + rand.nextInt();
-      doc.field(fieldName, val);
+      vals[i] = "val_" + rand.nextInt();
+      indexKeys.add(vals[i]);
+      doc.field(fieldName, vals[i]);
       doc.field("dummyField", "brmBrm_" + rand.nextInt());
       doc.save();
     }
+    db.commit();
     
+//    for (int i = 0; i < num; i++){
+      OResultSet rs = db.query("SELECT FROM " + className + " WHERE SEARCH_CLASS('val_*') = true", (Object[])null);
+      int count = 0;
+      while (rs.hasNext()){
+        rs.next();
+        count++;
+      }
+      if (count > 0){
+        System.out.println("found in index: " + count);
+        System.out.println("Generated keys size: " + indexKeys.size());
+      }
+//    }
+   
     db.close();
     orientDB.close();
   }
-  
 }
