@@ -87,14 +87,14 @@ public class IssueMTTransactionsRoolBackFailure {
     // The final result should probably be only one Teacher record in database,
     // even more than one, the bocking edges final state is not correct.
     public static void main(String[] args) throws InterruptedException {
-        OrientDB orientDB = new OrientDB("embedded:d:/services/databases", "root", "000000", OrientDBConfig.defaultConfig());
+        OrientDB orientDB = new OrientDB("embedded:/data/services/databases", "root", "000000", OrientDBConfig.defaultConfig());
         schema(orientDB);
         String teacherName = "Jim";
         // create one record first
         create(orientDB, UUID.randomUUID().toString(), teacherName, 0);
 
         // concurrent create records
-        ExecutorService executorService = Executors.newFixedThreadPool(5);
+        ExecutorService executorService = Executors.newFixedThreadPool(30);
         for (int i = 0; i < 3000; i++) {
           final int index = i;  
           executorService.execute(new Runnable() {
