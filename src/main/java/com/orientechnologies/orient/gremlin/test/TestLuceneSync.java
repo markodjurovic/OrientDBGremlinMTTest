@@ -33,7 +33,7 @@ public class TestLuceneSync {
     claz.createProperty("dummyField", OType.STRING);
     String indexName = className + "." + fieldName;
     claz.createIndex(indexName, "FULLTEXT", null, null, "LUCENE", new String[] {fieldName});    
-    for (int i = 0; i < 3000; i++){
+    for (int i = 0; i < 300; i++){
       ODocument doc = db.newInstance(className);
       String val = "val_" + rand.nextInt();
       doc.field(fieldName, val);
