@@ -25,7 +25,7 @@ public class RidBagPipeline {
     OClass claz = db.createVertexClass("VertexClass");
     OClass eClaz = db.createEdgeClass("EdgeClass");
     OVertex vertex = db.newVertex(claz);
-    for (int i = 0; i < 30000; i++){
+    for (int i = 0; i < 3000; i++){
       OVertex secondEnd = db.newVertex(claz);
       OEdge edge = db.newEdge(vertex, secondEnd, eClaz);
       secondEnd.save();
