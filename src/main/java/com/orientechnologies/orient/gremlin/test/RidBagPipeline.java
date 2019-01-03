@@ -24,6 +24,7 @@ public class RidBagPipeline {
     ODatabaseSession db = orientDB.open(TestNullType.class.getSimpleName(), "admin", "admin");
     OClass claz = db.createVertexClass("VertexClass");
     OClass eClaz = db.createEdgeClass("EdgeClass");
+    long startTime = System.currentTimeMillis();
     OVertex vertex = db.newVertex(claz);
     for (int i = 0; i < 3000; i++){
       OVertex secondEnd = db.newVertex(claz);
@@ -32,6 +33,7 @@ public class RidBagPipeline {
       edge.save();              
     }
     vertex.save();
+    System.out.println("Durration: " + (System.currentTimeMillis() - startTime));
     db.close();
   }
 }
